@@ -48,6 +48,20 @@ final class PomodoroViewModel {
         return max(0, endTime.timeIntervalSinceNow)
     }
     
+    func updateTimer(at date: Date) {
+        guard timer.state == .running else {
+            return
+        }
+
+        guard let endTime = timer.endTime else {
+            return
+        }
+
+        if date >= endTime {
+            completeSession()
+        }
+    }
+    
     func completeSession() {
         timer.state = .completed
     }

@@ -10,7 +10,7 @@ import SwiftUI
  
  ContentView
   ├── @State ViewModel
-  ├── VStack
+  ├── VStackgit branch -M main
   │    ├── countdown text
   │    └── Start button
  
@@ -21,12 +21,10 @@ struct ContentView: View {
     var body: some View {
         VStack {
             TimelineView(.periodic(from: .now, by: 1.0)) { context in
-                if viewModel.remainingTime <= 0 {
-//                    viewModel.completeSession()
-                }
-                
-                Text(timeString(from: viewModel.remainingTime))
-                    .font(.system(size: 60, weight: .bold, design: .monospaced))
+                Text(timeString(from: viewModel.remainingTime)).font(.system(size: 60, weight: .bold, design: .monospaced))
+                    .task(id: context.date) {
+                        viewModel.updateTimer(at: context.date)
+                    }
             }
             
             Button("Start") {
