@@ -2,7 +2,7 @@ import Foundation
 
 @Observable
 final class PomodoroViewModel {
-    var timer = PomodoroTimer(state: .idle, sessionType: .shortBreak, endTime: nil)
+    var timer = PomodoroTimer(state: .idle, sessionType: .shortBreak, endTime: nil, timeLeftOnPause: nil)
     
 //    private var ticker: Timer?
 //    private var tick = 0
@@ -41,11 +41,14 @@ final class PomodoroViewModel {
 //    }
     
     var remainingTime: TimeInterval {
-        guard let endTime = timer.endTime else {
-            return 0
+        if let timeLeftOnPause = timer.timeLeftOnPause {
+            return timeLeftOnPause
         }
         
-        return max(0, endTime.timeIntervalSinceNow)
+        if let endTime = timer.endTime {
+            return max(0, endTime.timeIntervalSinceNow)
+        }
+        return 0
     }
     
     func updateTimer(at date: Date) {
@@ -60,6 +63,28 @@ final class PomodoroViewModel {
         if date >= endTime {
             completeSession()
         }
+    }
+    
+    func pause() {
+        timer.state = .paused
+        timer.timeLeftOnPause = remainingTime
+        timer.endTime = nil
+    }
+    
+    func resume() {
+        guard let timeToAdd = timer.timeLeftOnPause else {
+            return
+        }
+        
+        timer.endTime = Date().addingTimeInterval(timeToAdd)
+        timer.state = .running
+        timer.timeLeftOnPause = nil
+    }
+    
+    func reset() {
+        timer.state = .idle
+        timer.endTime = nil
+        timer.timeLeftOnPause = nil
     }
     
     func completeSession() {

@@ -20,6 +20,14 @@ struct ContentView: View {
     @State private var viewModel = PomodoroViewModel()
     var body: some View {
         VStack {
+            Picker("Session Type", selection: $viewModel.timer.sessionType) {
+                ForEach(SessionType.allCases, id: \.self) { session in
+                    Text(session.rawValue).tag(session)
+                }
+            }
+            .disabled(viewModel.timer.state == .paused || viewModel.timer.state == .running)
+            .pickerStyle(.segmented)
+            
             TimelineView(.periodic(from: .now, by: 1.0)) { context in
                 Text(timeString(from: viewModel.remainingTime)).font(.system(size: 60, weight: .bold, design: .monospaced))
                     .task(id: context.date) {
@@ -27,8 +35,29 @@ struct ContentView: View {
                     }
             }
             
-            Button("Start") {
-                viewModel.start()
+            switch viewModel.timer.state {
+            case .idle:
+                Button("Start") {
+                    viewModel.start()
+                }
+            case .running:
+                HStack {
+                    Button("Pause") {
+                        viewModel.pause()
+                    }
+                    resetButton()
+                }
+            case .paused:
+                HStack {
+                    Button("Resume") {
+                        viewModel.resume()
+                    }
+                    resetButton()
+                }
+            case .completed:
+                Button("Start") {
+                    viewModel.start()
+                }
             }
         }
         .padding()
@@ -40,6 +69,13 @@ struct ContentView: View {
         let seconds = totalSeconds % 60
 
         return String(format: "%02d:%02d", minutes, seconds)
+    }
+    
+    @ViewBuilder
+    func resetButton() -> some View {
+        Button("Reset") {
+            viewModel.resume()
+        }
     }
 }
 

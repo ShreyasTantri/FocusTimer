@@ -11,6 +11,7 @@ struct PomodoroTimer {
     var state: TimerState
     var sessionType: SessionType
     var endTime: Date?
+    var timeLeftOnPause: TimeInterval?
 }
 
 enum TimerState {
@@ -20,8 +21,8 @@ enum TimerState {
     case completed
 }
 
-enum SessionType {
-    case work
-    case shortBreak
-    case longBreak
+enum SessionType: String, CaseIterable {
+    case work = "Work"
+    case shortBreak = "Short Break"
+    case longBreak = "Long Break"
 }
