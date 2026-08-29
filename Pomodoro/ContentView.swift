@@ -6,16 +6,6 @@
 //
 import SwiftUI
 
-/*
- 
- ContentView
-  ├── @State ViewModel
-  ├── VStackgit branch -M main
-  │    ├── countdown text
-  │    └── Start button
- 
- */
-
 struct ContentView: View {
     @State private var viewModel = PomodoroViewModel()
     var body: some View {
@@ -27,6 +17,10 @@ struct ContentView: View {
             }
             .disabled(viewModel.timer.state == .paused || viewModel.timer.state == .running)
             .pickerStyle(.segmented)
+            
+            Text("\(viewModel.completedWorkSessions)")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
             
             TimelineView(.periodic(from: .now, by: 1.0)) { context in
                 Text(timeString(from: viewModel.remainingTime)).font(.system(size: 60, weight: .bold, design: .monospaced))
