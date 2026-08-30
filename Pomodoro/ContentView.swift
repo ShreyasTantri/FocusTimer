@@ -8,8 +8,14 @@ import SwiftUI
 
 struct ContentView: View {
     @State private var viewModel = PomodoroViewModel()
+    @Environment(\.scenePhase) var scenePhase
+    
     var body: some View {
         VStack {
+            Text("Completed sessions: \(viewModel.completedWorkSessions)")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            
             Picker("Session Type", selection: $viewModel.timer.sessionType) {
                 ForEach(SessionType.allCases, id: \.self) { session in
                     Text(session.rawValue).tag(session)
@@ -17,10 +23,6 @@ struct ContentView: View {
             }
             .disabled(viewModel.timer.state == .paused || viewModel.timer.state == .running)
             .pickerStyle(.segmented)
-            
-            Text("\(viewModel.completedWorkSessions)")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
             
             TimelineView(.periodic(from: .now, by: 1.0)) { context in
                 Text(timeString(from: viewModel.remainingTime)).font(.system(size: 60, weight: .bold, design: .monospaced))
@@ -55,6 +57,11 @@ struct ContentView: View {
             }
         }
         .padding()
+        .onChange(of: scenePhase) { oldPhase, newPhase in
+            if newPhase == .active {
+                viewModel.updateTimer(at: .now)
+            }
+        }
     }
     
     private func timeString(from time: TimeInterval) -> String {
@@ -68,7 +75,7 @@ struct ContentView: View {
     @ViewBuilder
     func resetButton() -> some View {
         Button("Reset") {
-            viewModel.resume()
+            viewModel.reset()
         }
     }
 }
