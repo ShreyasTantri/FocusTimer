@@ -25,36 +25,15 @@ struct ContentView: View {
             .pickerStyle(.segmented)
             
             TimelineView(.periodic(from: .now, by: 1.0)) { context in
-                Text(timeString(from: viewModel.remainingTime)).font(.system(size: 60, weight: .bold, design: .monospaced))
-                    .task(id: context.date) {
-                        viewModel.updateTimer(at: context.date)
-                    }
-            }
-            
-            switch viewModel.timer.state {
-            case .idle:
-                Button("Start") {
-                    viewModel.start()
-                }
-            case .running:
-                HStack {
-                    Button("Pause") {
-                        viewModel.pause()
-                    }
-                    resetButton()
-                }
-            case .paused:
-                HStack {
-                    Button("Resume") {
-                        viewModel.resume()
-                    }
-                    resetButton()
-                }
-            case .completed:
-                Button("Start") {
-                    viewModel.start()
+                ProgressRingView(
+                    progress: viewModel.progress,
+                    timeString: timeString(from: viewModel.remainingTime)
+                )
+                .task(id: context.date) {
+                    viewModel.updateTimer(at: context.date)
                 }
             }
+            ControlButtonsView(viewModel: viewModel)
         }
         .padding()
         .onChange(of: scenePhase) { oldPhase, newPhase in
@@ -80,6 +59,81 @@ struct ContentView: View {
     }
 }
 
+struct ProgressRingView: View {
+    let progress: Double
+    let timeString: String
+    
+    var body: some View {
+        ZStack {
+            Circle()
+                .stroke(lineWidth: 15)
+                .opacity(0.3)
+                .foregroundColor(.gray)
+            
+            Circle()
+                .trim(from: 0.0, to: CGFloat(progress))
+                .stroke(style: StrokeStyle(lineWidth: 15, lineCap: .round))
+                .foregroundColor(.blue)
+                .rotationEffect(Angle(degrees: -90))
+                .animation(.linear(duration: 1.0), value: progress)
+            
+            Text(timeString)
+                .font(.system(size: 60, weight: .bold, design: .monospaced))
+        }
+        .padding(40)
+    }
+}
+
+struct ControlButtonModifier: ViewModifier {
+    var color: Color
+    
+    func body(content: Content) -> some View {
+        content
+            .font(.title)
+            .foregroundColor(.white)
+            .frame(width: 70, height: 70)
+            .background(color.gradient)
+            .clipShape(Circle())
+            .shadow(radius: 3, y: 3)
+    }
+}
+
+struct ControlButtonsView: View {
+    let viewModel: PomodoroViewModel
+    
+    var body: some View {
+        HStack(spacing: 30) {
+            switch viewModel.timer.state {
+            case .idle, .completed:
+                Button(action: { viewModel.start() }) {
+                    Image(systemName: "play.fill")
+                        .modifier(ControlButtonModifier(color: .blue))
+                }
+                
+            case .running:
+                Button(action: { viewModel.pause() }) {
+                    Image(systemName: "pause.fill")
+                        .modifier(ControlButtonModifier(color: .orange))
+                }
+                Button(action: { viewModel.reset() }) {
+                    Image(systemName: "arrow.counterclockwise")
+                        .modifier(ControlButtonModifier(color: .red))
+                }
+                
+            case .paused:
+                Button(action: { viewModel.resume() }) {
+                    Image(systemName: "play.fill")
+                        .modifier(ControlButtonModifier(color: .green))
+                }
+                Button(action: { viewModel.reset() }) {
+                    Image(systemName: "arrow.counterclockwise")
+                        .modifier(ControlButtonModifier(color: .red))
+                }
+            }
+        }
+        .padding(.top, 20)
+    }
+}
 
 #Preview {
     ContentView()

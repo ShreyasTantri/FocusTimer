@@ -21,6 +21,12 @@ final class PomodoroViewModel {
         return 0
     }
     
+    var progress: Double {
+        let total = timer.sessionType.durationInSeconds
+        guard total > 0 else { return 0 }
+        return remainingTime / total
+    }
+    
     func updateTimer(at date: Date) {
         guard timer.state == .running else {
             return
