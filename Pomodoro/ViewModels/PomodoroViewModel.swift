@@ -2,29 +2,83 @@ import Foundation
 
 @Observable
 final class PomodoroViewModel {
-    var timer = PomodoroTimer(state: .idle, sessionType: .shortBreak, endTime: nil, timeLeftOnPause: nil)
-    var completedWorkSessions: Int = 0
+    @ObservationIgnored private let storage: PomodoroStorage
+    var timer = PomodoroTimer(state: .idle, sessionType: .work, endTime: nil, timeLeftOnPause: nil)
+    var completedWorkSessions: Int = 0 {
+        didSet {
+            storage.saveStats(
+                PomodoroStats(completeWorkSessions: completedWorkSessions)
+            )
+        }
+    }
     
-    func start() {
-        timer.endTime = Date().addingTimeInterval(timer.sessionType.durationInSeconds)
+    var settings = PomodoroSettings() {
+        didSet {
+            storage.saveSettings(settings)
+        }
+    }
+    
+    init(storage: PomodoroStorage = UserDefaultsPomodoroStorage.shared) {
+        self.storage = storage
+        self.settings = storage.loadSettings()
+        self.completedWorkSessions = storage.loadStats().completeWorkSessions
+    }
+    
+    var statusText: String {
+        switch timer.state {
+        case .idle:
+            return "Ready to Start"
+        case .running:
+            return "Stay Focused"
+        case .paused:
+            return "Paused"
+        case .completed:
+            return "Nice Work!"
+        }
+    }
+    
+    var completionTitle: String {
+        switch timer.sessionType {
+        case .work: 
+            return "Focus session complete"
+        case .shortBreak: 
+            return "Short break complete"
+        case .longBreak: 
+            return "Long break complete"
+        }
+    }
+    
+    var completionMessage: String {
+        switch timer.sessionType {
+        case .work: 
+            return "Great job staying focused!"
+        case .shortBreak: 
+            return "Take a break and relax!"
+        case .longBreak: 
+            return "Enjoy your well-deserved break!"
+        }
+    }
+    
+    func start(at date: Date = .now) {
+        timer.endTime = date.addingTimeInterval(duration(for: timer.sessionType))
         timer.state = .running
     }
     
-    var remainingTime: TimeInterval {
+    func remainingTime(at date: Date = .now) -> TimeInterval {
         if let timeLeftOnPause = timer.timeLeftOnPause {
             return timeLeftOnPause
         }
         
         if let endTime = timer.endTime {
-            return max(0, endTime.timeIntervalSinceNow)
+            return max(0, endTime.timeIntervalSince(date))
         }
-        return 0
+        return duration(for: timer.sessionType)
     }
     
-    var progress: Double {
-        let total = timer.sessionType.durationInSeconds
+    func progress(at date: Date = .now) -> Double {
+        let total = duration(for: timer.sessionType)
         guard total > 0 else { return 0 }
-        return remainingTime / total
+        return remainingTime(at: date) / total
     }
     
     func updateTimer(at date: Date) {
@@ -41,18 +95,23 @@ final class PomodoroViewModel {
         }
     }
     
-    func pause() {
+    func pause(at date: Date = .now) {
+        updateTimer(at: date)
+        guard timer.state == .running else {
+            return
+        }
+        
         timer.state = .paused
-        timer.timeLeftOnPause = remainingTime
+        timer.timeLeftOnPause = remainingTime(at: date)
         timer.endTime = nil
     }
     
-    func resume() {
+    func resume(at date: Date = .now) {
         guard let timeToAdd = timer.timeLeftOnPause else {
             return
         }
         
-        timer.endTime = Date().addingTimeInterval(timeToAdd)
+        timer.endTime = date.addingTimeInterval(timeToAdd)
         timer.state = .running
         timer.timeLeftOnPause = nil
     }
@@ -71,4 +130,29 @@ final class PomodoroViewModel {
         }
     }
     
+    func duration(for sessionType: SessionType) -> TimeInterval {
+        switch sessionType {
+        case .work:
+            return settings.workDuration
+        case .shortBreak:
+            return settings.shortBreakDuration
+        case .longBreak:
+            return settings.longBreakDuration
+        }
+    }
+    
+    func updateWorkDuration(minutes: Double) {
+        settings.workDuration = minutes * 60
+        reset()
+    }
+    
+    func updateShortBreakDuration(minutes: Double) {
+        settings.shortBreakDuration = minutes * 60
+        reset()
+    }
+    
+    func updateLongBreakDuration(minutes: Double) {
+        settings.longBreakDuration = minutes * 60
+        reset()
+    }
 }

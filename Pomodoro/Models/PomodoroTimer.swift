@@ -25,15 +25,4 @@ enum SessionType: String, CaseIterable {
     case work = "Work"
     case shortBreak = "Short Break"
     case longBreak = "Long Break"
-    
-    var durationInSeconds: TimeInterval {
-        switch self {
-        case .work:
-            return 25 * 60
-        case .shortBreak:
-            return 5 * 60
-        case .longBreak:
-            return 15 * 60
-        }
-    }
 }
