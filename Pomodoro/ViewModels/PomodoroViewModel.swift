@@ -2,10 +2,27 @@ import Foundation
 
 @Observable
 final class PomodoroViewModel {
+    @ObservationIgnored private let storage: PomodoroStorage
     var timer = PomodoroTimer(state: .idle, sessionType: .work, endTime: nil, timeLeftOnPause: nil)
-    var completedWorkSessions: Int = 0
+    var completedWorkSessions: Int = 0 {
+        didSet {
+            storage.saveStats(
+                PomodoroStats(completeWorkSessions: completedWorkSessions)
+            )
+        }
+    }
     
-    var settings = PomodoroSettings()
+    var settings = PomodoroSettings() {
+        didSet {
+            storage.saveSettings(settings)
+        }
+    }
+    
+    init(storage: PomodoroStorage = UserDefaultsPomodoroStorage.shared) {
+        self.storage = storage
+        self.settings = storage.loadSettings()
+        self.completedWorkSessions = storage.loadStats().completeWorkSessions
+    }
     
     var statusText: String {
         switch timer.state {
@@ -17,6 +34,28 @@ final class PomodoroViewModel {
             return "Paused"
         case .completed:
             return "Nice Work!"
+        }
+    }
+    
+    var completionTitle: String {
+        switch timer.sessionType {
+        case .work: 
+            return "Focus session complete"
+        case .shortBreak: 
+            return "Short break complete"
+        case .longBreak: 
+            return "Long break complete"
+        }
+    }
+    
+    var completionMessage: String {
+        switch timer.sessionType {
+        case .work: 
+            return "Great job staying focused!"
+        case .shortBreak: 
+            return "Take a break and relax!"
+        case .longBreak: 
+            return "Enjoy your well-deserved break!"
         }
     }
     

@@ -12,9 +12,30 @@ struct ContentView: View {
     @State private var isShowingSettings = false
     
     var body: some View {
-        VStack(spacing: 28) {
-            topBar
-        
+        ZStack {
+            backgroundGradient
+                .ignoresSafeArea()
+            VStack(spacing: 0) {
+                topBar
+                ScrollView {
+                    timerContent
+                }
+                .scrollIndicators(.hidden)
+            }
+        }
+        .sheet(isPresented: $isShowingSettings) {
+            SettingsView(viewModel: viewModel)
+        }
+        .onChange(of: scenePhase) { oldPhase, newPhase in
+            if newPhase == .active {
+                viewModel.updateTimer(at: .now)
+            }
+        }
+    }
+    
+    // Timer Content
+    private var timerContent: some View {
+        VStack(spacing: 24) {
             sessionHeader
             
             TimelineView(.periodic(from: .now, by: 1.0)) { context in
@@ -28,27 +49,28 @@ struct ContentView: View {
                 }
             }
             
-            Picker("Session Type", selection: $viewModel.timer.sessionType) {
-                ForEach(SessionType.allCases, id: \.self) { session in
-                    Text(session.rawValue).tag(session)
-                }
+            // Completion Card
+            if viewModel.timer.state == .completed {
+                completionCard
             }
-            .disabled(viewModel.timer.state == .paused || viewModel.timer.state == .running)
-            .pickerStyle(.segmented)
+            
+            sessionPicker
             
             ControlButtonsView(viewModel: viewModel, primaryColor: sessionColor)
-            Spacer()
         }
-        .padding(8)
-        .background(backgroundGradient)
-        .sheet(isPresented: $isShowingSettings) {
-            SettingsView(viewModel: viewModel)
-        }
-        .onChange(of: scenePhase) { oldPhase, newPhase in
-            if newPhase == .active {
-                viewModel.updateTimer(at: .now)
+        .padding(.horizontal, 20)
+        .padding(.top, 24)
+        .padding(.bottom, 40)
+    }
+    
+    private var sessionPicker: some View {
+        Picker("Session Type", selection: $viewModel.timer.sessionType) {
+            ForEach(SessionType.allCases, id: \.self) { session in
+                Text(session.rawValue).tag(session)
             }
         }
+        .disabled(viewModel.timer.state == .paused || viewModel.timer.state == .running)
+        .pickerStyle(.segmented)
     }
     // TopBar
     private var topBar: some View {
@@ -68,7 +90,11 @@ struct ContentView: View {
                     .background(.thinMaterial)
                     .clipShape(Circle())
             }
+            .buttonStyle(.plain)
         }
+        .padding(.horizontal, 20)
+        .padding([.top, .bottom], 12)
+        .background(.thinMaterial)
     }
     
     // Session Header
@@ -102,7 +128,25 @@ struct ContentView: View {
             return .purple
         }
     }
-    
+    // CompletionCard
+    private var completionCard: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "checkmark.seal.fill")
+                .font(.system(size: 30, weight: .semibold))
+                .foregroundStyle(sessionColor)
+            Text(viewModel.completionTitle)
+                .font(.headline.weight(.semibold))
+            Text(viewModel.completionMessage)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity)
+        .background(.thinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .padding(.horizontal, 12)
+    }
     private var backgroundGradient: LinearGradient {
         LinearGradient(colors: [sessionColor.opacity(0.18), Color(.systemBackground)], startPoint: .top, endPoint: .bottom)
     }
@@ -130,6 +174,7 @@ struct ProgressRingView: View {
     let progress: Double
     let timeString: String
     let color: Color
+    private let ringSize: CGFloat = 260
     
     var body: some View {
         ZStack {
@@ -137,8 +182,7 @@ struct ProgressRingView: View {
                 .stroke(color.opacity(0.16), lineWidth: 18)
                 .opacity(0.3)
                 .foregroundColor(.gray)
-                .frame(width: 280, height: 280)
-                .padding(24)
+                .frame(width: ringSize, height: ringSize)
             
             Circle()
                 .trim(from: 0.0, to: CGFloat(progress))
@@ -147,8 +191,7 @@ struct ProgressRingView: View {
                 .foregroundColor(color)
                 .rotationEffect(Angle(degrees: -90))
                 .animation(.linear(duration: 1.0), value: progress)
-                .frame(width: 280, height: 280)
-                .padding(24)
+                .frame(width: ringSize, height: ringSize)
             
             VStack(spacing: 8) {
                 Text(timeString)
@@ -183,40 +226,52 @@ struct ControlButtonsView: View {
     var body: some View {
         HStack(spacing: 30) {
             switch viewModel.timer.state {
-            case .idle, .completed:
-                VStack(spacing: 8) {
-                    Button(action: { viewModel.start() }) {
-                        Image(systemName: "play.fill")
-                            .modifier(ControlButtonModifier(color: primaryColor))
-                    }
-
-                    Text("Start")
-                        .font(.caption.weight(.medium))
-                        .foregroundStyle(.secondary)
+            case .idle:
+                controlButton(icon: "play.fill", title: "Start", color: primaryColor) {
+                    viewModel.start()
+                }
+                
+            case .completed:
+                controlButton(icon: "arrow.clockwise", title: "Start Again", color: primaryColor) {
+                    viewModel.start()
                 }
                 
             case .running:
-                Button(action: { viewModel.pause() }) {
-                    Image(systemName: "pause.fill")
-                        .modifier(ControlButtonModifier(color: primaryColor))
+                controlButton(icon: "pause.fill", title: "Pause", color: primaryColor) {
+                    viewModel.pause()
                 }
-                Button(action: { viewModel.reset() }) {
-                    Image(systemName: "arrow.counterclockwise")
-                        .modifier(ControlButtonModifier(color: primaryColor))
+                
+                controlButton(icon: "arrow.counterclockwise", title: "Reset", color: .red) {
+                    viewModel.reset()
                 }
                 
             case .paused:
-                Button(action: { viewModel.resume() }) {
-                    Image(systemName: "play.fill")
-                        .modifier(ControlButtonModifier(color: primaryColor))
+                controlButton(icon: "play.fill", title: "Resume", color: primaryColor) {
+                    viewModel.resume()
                 }
-                Button(action: { viewModel.reset() }) {
-                    Image(systemName: "arrow.counterclockwise")
-                        .modifier(ControlButtonModifier(color: primaryColor))
+                controlButton(icon: "arrow.counterclockwise", title: "Reset", color: .red) {
+                    viewModel.reset()
                 }
             }
         }
         .padding(.top, 20)
+    }
+    
+    private func controlButton(
+        icon: String,
+        title: String,
+        color: Color,
+        action: @escaping () -> Void
+    ) -> some View {
+        VStack(spacing: 8) {
+            Button(action: action) {
+                Image(systemName: icon)
+                    .modifier(ControlButtonModifier(color: color))
+            }
+            Text(title)
+                .font(.caption.weight(.medium))
+                .foregroundStyle(.secondary)
+        }
     }
 }
 
